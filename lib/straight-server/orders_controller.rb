@@ -11,15 +11,9 @@ module StraightServer
       @params       = env.params
       @method       = env['REQUEST_METHOD']
       @request_path = env['REQUEST_PATH'].split('/').delete_if { |s| s.nil? || s.empty? }
-      dispatch
     end
 
     def create
-
-      unless @gateway
-        StraightServer.logger.warn "Gateway not found"
-        return [404, {}, "Gateway not found" ]
-      end
 
       unless @gateway.check_signature
         ip = @env['HTTP_X_FORWARDED_FOR'].to_s
@@ -76,15 +70,7 @@ module StraightServer
     end
 
     def show
-
-      unless @gateway
-        StraightServer.logger.warn "Gateway not found"
-        return [404, {}, "Gateway not found" ]
-      end
-
-      order = find_order
-
-      if order
+      if (order = find_order)
         order.status(reload: true)
         order.save if order.status_changed?
         [200, {}, order.to_json]
@@ -92,11 +78,11 @@ module StraightServer
     end
 
     def websocket
-
       order = find_order
       if order
         begin
-          @gateway.add_websocket_for_order ws = Faye::WebSocket.new(@env), order
+          ws = Faye::WebSocket.new(@env)
+          @gateway.add_websocket_for_order ws, order
           ws.rack_response
         rescue Gateway::WebsocketExists
           [403, {}, "Someone is already listening to that order"]
@@ -106,28 +92,22 @@ module StraightServer
       end
     end
 
-    private
+    def action(name)
+      StraightServer.logger.blank_lines
+      StraightServer.logger.info "#{@method} #{@env['REQUEST_PATH'.freeze]}\n#{@params}"
 
-      def dispatch
-
-        StraightServer.logger.blank_lines
-        StraightServer.logger.info "#{@method} #{@env['REQUEST_PATH']}\n#{@params}"
-
-        @gateway = StraightServer::Gateway.find_by_hashed_id(@request_path[1])
-
-        @response = if @request_path[3] # if an order id is supplied
-          @params['id'] = @request_path[3]
-          @params['id'] = @params['id'].to_i if @params['id'] =~ /\A\d+\Z/
-          if @request_path[4] == 'websocket'
-            websocket
-          elsif @request_path[4].nil? && @method == 'GET'
-            show
-          end
-        elsif @request_path[3].nil?# && @method == 'POST'
-          create
-        end
-        @response = [404, {}, "#{@method} /#{@request_path.join('/')} Not found"] if @response.nil?
+      @gateway = StraightServer::Gateway.find_by_hashed_id(@params['gateway_id'.freeze])
+      unless @gateway
+        StraightServer.logger.warn "Gateway not found".freeze
+        return [404, {}, "Gateway not found".freeze]
       end
+
+      @params['id'.freeze] = @params['id'.freeze].to_i if @params['id'.freeze] =~ /\A\d+\Z/
+
+      @response = public_send(name) || [404, {}, "#{@method} /#{@request_path.join('/')} Not found"]
+    end
+
+    private
 
       def find_order
         if @params['id'] =~ /[^\d]+/

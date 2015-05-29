@@ -1,6 +1,16 @@
 require 'spec_helper'
+require 'goliath'
+require 'straight-server/server'
 
 RSpec.describe StraightServer::OrdersController do
+
+  before :all do
+    StraightServer::Server::ConfigDir.set! File.expand_path('../../.straight', __FILE__)
+  end
+
+  after :all do
+    StraightServer::Server::ConfigDir.set! false
+  end
 
   before(:each) do
     DB.run("DELETE FROM orders")
@@ -168,11 +178,12 @@ RSpec.describe StraightServer::OrdersController do
 
   def send_request(method, path, params={})
     env = Hashie::Mash.new({ 'REQUEST_METHOD' => method, 'REQUEST_PATH' => path, 'params' => params })
-    @controller = StraightServer::OrdersController.new(env)
+    @server ||= StraightServer::Server.new
+    @response = @server.process_request(env)
   end
 
   def response
-    @controller.response
+    @response
   end
 
 end

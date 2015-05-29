@@ -9,9 +9,12 @@ module StraightServer
 
       class << self
 
+        @@config_dir = nil
+
         # Determine config dir or set default. Useful when we want to
         # have different settings for production or staging or development environments.
         def set!(path=nil)
+          return if @@config_dir && path.nil?
           @@config_dir = path and return if path
           @@config_dir = ENV['HOME'] + '/.straight'
           ARGV.each do |a|
@@ -45,8 +48,8 @@ module StraightServer
       initialize_routes
     end
 
-    def add_route(path, &block)
-      @routes[path] = block 
+    def add_route(path, method=:any, &block)
+      (@routes ||= {})[path] = [method, block]
     end
 
     def create_config_files
@@ -55,7 +58,7 @@ module StraightServer
       unless File.exist?(ConfigDir.path + '/addons.yml')
         puts "\e[1;33mNOTICE!\e[0m \e[33mNo file ~/.straight/addons.yml was found. Created an empty sample for you.\e[0m"
         puts "No need to restart until you actually list your addons there. Now will continue loading StraightServer."
-        FileUtils.cp(GEM_ROOT + '/templates/addons.yml', ENV['HOME'] + '/.straight/') 
+        FileUtils.cp(GEM_ROOT + '/templates/addons.yml', ENV['HOME'] + '/.straight/')
       end
 
       unless File.exist?(ConfigDir.path + '/server_secret')
@@ -70,7 +73,7 @@ module StraightServer
         puts "\e[1;33mWARNING!\e[0m \e[33mNo file ~/.straight/config was found. Created a sample one for you.\e[0m"
         puts "You should edit it and try starting the server again.\n"
 
-        FileUtils.cp(GEM_ROOT + '/templates/config.yml', ENV['HOME'] + '/.straight/') 
+        FileUtils.cp(GEM_ROOT + '/templates/config.yml', ENV['HOME'] + '/.straight/')
         puts "Shutting down now.\n\n"
         exit
       end
@@ -127,10 +130,14 @@ module StraightServer
     end
 
     def initialize_routes
-      @routes = {}
-      add_route /\A\/gateways\/.+?\/orders(\/.+)?\Z/ do |env|
-        controller = OrdersController.new(env)
-        controller.response
+      add_route %r{\A/gateways/(?<gateway_id>.+?)/orders\Z} do |env|
+        OrdersController.new(env).action(:create)
+      end
+      add_route %r{\A/gateways/(?<gateway_id>.+?)/orders/(?<id>.+?)/websocket\Z} do |env|
+        OrdersController.new(env).action(:websocket)
+      end
+      add_route %r{\A/gateways/(?<gateway_id>.+?)/orders/(?<id>.+?)\Z}, :GET do |env|
+        OrdersController.new(env).action(:show)
       end
     end
 
@@ -187,7 +194,7 @@ module StraightServer
     end
 
     # Loads redis gem and sets up key prefixes for order counters
-    # for the current straight environment. 
+    # for the current straight environment.
     def setup_redis_connection
       require 'redis'
       Config.redis = Config.redis.keys_to_sym

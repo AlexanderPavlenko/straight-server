@@ -20,7 +20,7 @@ module StraightServer
       # Even though we define that option here, it is purely for the purposes of compliance with
       # Goliath server. If don't do that, there will be an exception saying "unrecognized argument".
       # In reality, we make use of --config-dir value in the in StraightServer::Initializer and stored
-      # it in StraightServer::Initializer.config_dir property. 
+      # it in StraightServer::Initializer.config_dir property.
       opts.on('-c', '--config-dir STRING', "Directory where config files and addons are placed") do |val|
         options[:config_dir] = File.expand_path(val || ENV['HOME'] + '/.straight' )
       end
@@ -42,7 +42,7 @@ module StraightServer
         # AFTER the process is daemonized, this shall remain as it is now.
         begin
           return process_request(env)
-        rescue Sequel::DatabaseDisconnectError 
+        rescue Sequel::DatabaseDisconnectError
           connect_to_db
           return process_request(env)
         end
@@ -68,12 +68,15 @@ module StraightServer
         end
       end
 
-      @routes.each do |path, action| # path is a regexp
-        return action.call(env) if env['REQUEST_PATH'] =~ path
+      @routes.each do |path, (method, action)| # path is a regexp
+        if (method == :any || method == env['REQUEST_METHOD'].to_sym) && (match = path.match(env['REQUEST_PATH']))
+          (env.params ||= {}).merge! Hash[match.names.zip(match.captures)]
+          return action.call(env)
+        end
       end
+
       # no block was called, means no route matched. Let's render 404
-      return [404, {}, "#{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} Not found"]
+      [404, {}, "#{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} Not found"]
     end
-    
   end
 end

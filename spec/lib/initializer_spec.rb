@@ -10,7 +10,7 @@ RSpec.describe StraightServer::Initializer do
 
   before(:each) do
     # redefining Kernel #puts and #print, to get rid of outputs/noise while running specs
-    module Kernel 
+    module Kernel
       alias :original_puts :puts
       alias :original_print :print
       def puts(s); end
@@ -20,12 +20,12 @@ RSpec.describe StraightServer::Initializer do
     @templates_dir = File.expand_path('../../templates', File.dirname(__FILE__))
     ENV['HOME']   = File.expand_path('../tmp', File.dirname(__FILE__))
     @initializer = StraightServer::TestInitializerClass.new
-    StraightServer::Initializer::ConfigDir.set!
+    StraightServer::Initializer::ConfigDir.set! false
   end
 
   after(:each) do
     # reverting redefinition of Kernel #puts and #print made in before block
-    module Kernel 
+    module Kernel
       alias :puts :original_puts
       alias :print :original_print
     end
@@ -38,7 +38,7 @@ RSpec.describe StraightServer::Initializer do
     begin
       @initializer.create_config_files
     rescue Exception => e
-      expect(e.status).to eq 0 
+      expect(e.status).to eq 0
     end
   end
 
@@ -55,9 +55,9 @@ RSpec.describe StraightServer::Initializer do
   end
 
   it "connects to the database" do
-    StraightServer::Config.db = { 
+    StraightServer::Config.db = {
       adapter: 'sqlite',
-      name: 'straight.db', 
+      name: 'straight.db',
     }
     create_config_files
     @initializer.connect_to_db
@@ -92,7 +92,7 @@ RSpec.describe StraightServer::Initializer do
   def remove_tmp_dir
     if Dir.exist?(File.expand_path('../tmp/', File.dirname(__FILE__)))
       FileUtils.rm_r(File.expand_path('../tmp/', File.dirname(__FILE__)))
-    end      
+    end
   end
 
 end

@@ -1,5 +1,11 @@
 source 'https://rubygems.org' do
-  gem 'straight', '0.2.3' #, path: '../straight-engine'
+  if ENV['BUILDING'].to_s.empty?
+    gem 'straight', '0.2.3' #, path: '../straight-engine'
+  else
+    # TODO: gem 'straight', github: 'MyceliumGear/straight', branch: ENV['STRAIGHT_BRANCH'] || 'master'
+    gem 'straight', git: '/home/alerticus/Projects/mycelium_gear_new/straight/.git', branch: ENV['STRAIGHT_BRANCH'] || 'master'
+    gem 'pg'
+  end
   gem 'satoshi-unit'
   gem 'goliath'
   gem 'faye-websocket'
@@ -12,7 +18,7 @@ source 'https://rubygems.org' do
 end
 
 unless ENV['STRAIGHT_SERVER_IGNORE_ADDONS_GEMFILE'] # use this flag when building straight-server.gemspec
-  addons_gemfile = File.join(ENV['STRAIGHT_SERVER_CONFIG_DIR'] || File.join(ENV['HOME'], '.straight'), 'AddonsGemfile')
+  addons_gemfile = ENV['STRAIGHT_SERVER_ADDONS_GEMFILE'] || File.join(ENV['STRAIGHT_SERVER_CONFIG_DIR'] || File.join(ENV['HOME'], '.straight'), 'AddonsGemfile')
   eval_gemfile addons_gemfile if File.exists?(addons_gemfile)
 end
 
